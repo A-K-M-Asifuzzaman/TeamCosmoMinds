@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Gamepad2, Rocket } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
+import { useGSAP } from '@gsap/react';
+import gsap from 'gsap';
 import Navbar from './Navbar';
 
 const FACTS = [
@@ -19,30 +21,23 @@ const FACTS = [
 function drawRocket(ctx, x, y, vy, f, inv) {
   if(inv>0 && Math.floor(f/5)%2===0) return;
   ctx.save(); ctx.translate(x,y);
-  // Flame
   const fl=18+Math.sin(f*.3)*7;
   const fg=ctx.createLinearGradient(-10,0,-10-fl,0);
   fg.addColorStop(0,'rgba(255,200,50,.95)'); fg.addColorStop(.6,'rgba(255,80,20,.6)'); fg.addColorStop(1,'rgba(255,30,0,0)');
   ctx.beginPath(); ctx.moveTo(-10,-7); ctx.lineTo(-10-fl,0); ctx.lineTo(-10,7); ctx.fillStyle=fg; ctx.fill();
-  // Body
   const bg=ctx.createLinearGradient(-12,-13,12,13);
   bg.addColorStop(0,'#e8f4ff'); bg.addColorStop(1,'#90b8dd');
   ctx.beginPath(); ctx.ellipse(0,0,21,11,0,0,Math.PI*2); ctx.fillStyle=bg; ctx.fill();
   ctx.strokeStyle='#6090b0'; ctx.lineWidth=1.2; ctx.stroke();
-  // Nose
   ctx.beginPath(); ctx.moveTo(21,0); ctx.lineTo(10,-9); ctx.lineTo(10,9); ctx.fillStyle='#ff4444'; ctx.fill();
-  // Wings
   ctx.beginPath(); ctx.moveTo(-2,10); ctx.lineTo(-11,21); ctx.lineTo(4,11); ctx.fillStyle='#c0d8f0'; ctx.fill();
   ctx.beginPath(); ctx.moveTo(-2,-10); ctx.lineTo(-11,-21); ctx.lineTo(4,-11); ctx.fillStyle='#c0d8f0'; ctx.fill();
-  // Window
   ctx.beginPath(); ctx.arc(4,0,5.5,0,Math.PI*2); ctx.fillStyle='rgba(100,200,255,.85)'; ctx.fill();
   ctx.strokeStyle='rgba(80,180,255,.8)'; ctx.lineWidth=1.3; ctx.stroke();
-  // Kid face
   ctx.fillStyle='#ffcc88'; ctx.beginPath(); ctx.arc(4,0,4,0,Math.PI*2); ctx.fill();
   ctx.fillStyle='#333'; ctx.beginPath(); ctx.arc(2.5,-1,.8,0,Math.PI*2); ctx.fill();
   ctx.beginPath(); ctx.arc(5.5,-1,.8,0,Math.PI*2); ctx.fill();
   ctx.beginPath(); ctx.arc(4,1.5,1.5,0,Math.PI); ctx.strokeStyle='#c06020'; ctx.lineWidth=.8; ctx.stroke();
-  // NASA label
   ctx.fillStyle='#003'; ctx.font='bold 4.5px Arial'; ctx.textAlign='center'; ctx.fillText('NASA',-5,4);
   ctx.restore();
 }
@@ -90,14 +85,18 @@ function addParticles(arr,x,y,color,n=14){
 
 export default function SpaceGame() {
   const canvasRef=useRef(null);
-  const gs=useRef(null); // game state ref — no setState during loop
+  const gs=useRef(null);
   const rafRef=useRef(null);
   const keysRef=useRef({});
-  const [phase,setPhase]=useState('menu'); // menu|playing|over|win
+  const [phase,setPhase]=useState('menu');
   const [uiScore,setUiScore]=useState(0);
   const [uiLives,setUiLives]=useState(3);
   const [fact,setFact]=useState(null);
   const [hs,setHs]=useState(()=>Number(localStorage.getItem('cosmo_hs')||0));
+
+  // GSAP refs
+  const menuRef = useRef(null);
+  const endRef = useRef(null);
 
   const stopLoop=useCallback(()=>cancelAnimationFrame(rafRef.current),[]);
 
@@ -121,7 +120,6 @@ export default function SpaceGame() {
     const {W,H}=s;
     s.f++;
 
-    // Input
     const up=keysRef.current['ArrowUp']||keysRef.current['w']||keysRef.current['W'];
     const dn=keysRef.current['ArrowDown']||keysRef.current['s']||keysRef.current['S'];
     if(up) s.rocket.vy-=.52;
@@ -130,37 +128,30 @@ export default function SpaceGame() {
     s.rocket.y=Math.max(28,Math.min(H-28,s.rocket.y+s.rocket.vy));
     if(s.inv>0) s.inv--;
 
-    // Speed ramp
     if(s.f%500===0) s.speed=Math.min(s.speed+.35,8);
 
-    // Spawn asteroids
     const aInterval=Math.max(45,115-s.score*.4);
     if(s.f-s.lastA>aInterval){
       const szs=[16,22,30]; const sz=szs[s.f%3];
       s.asteroids.push({x:W+sz,y:Math.random()*(H-80)+40,vx:-(s.speed+Math.random()*1.2),vy:(Math.random()-.5)*.9,r:sz,rot:0,rv:(Math.random()-.5)*.05,pts:Math.floor(8+Math.random()*5)});
       s.lastA=s.f;
     }
-    // Spawn orbs
     if(s.f-s.lastO>260){
       const fc=FACTS[s.f%FACTS.length];
       s.orbs.push({x:W+18,y:Math.random()*(H-100)+50,vx:-(s.speed*.65+.4),r:16,fact:fc});
       s.lastO=s.f;
     }
 
-    // BG
     ctx.fillStyle='#020614'; ctx.fillRect(0,0,W,H);
-    // Stars
     s.stars.forEach(st=>{
       st.x-=st.spd*.45; if(st.x<0){st.x=W;st.y=Math.random()*H;}
       const a=.3+Math.sin(s.f*.018+st.a*8)*.28;
       ctx.fillStyle=`rgba(200,220,255,${a})`; ctx.beginPath(); ctx.arc(st.x,st.y,st.sz,0,Math.PI*2); ctx.fill();
     });
-    // Nebula tint
     const nb=ctx.createRadialGradient(W*.75,H*.25,0,W*.75,H*.25,220);
     nb.addColorStop(0,'rgba(70,15,130,.06)'); nb.addColorStop(1,'transparent');
     ctx.fillStyle=nb; ctx.fillRect(0,0,W,H);
 
-    // Asteroids
     s.asteroids=s.asteroids.filter(a=>{
       a.x+=a.vx; a.y+=a.vy; a.rot+=a.rv;
       drawAsteroid(ctx,a);
@@ -176,7 +167,6 @@ export default function SpaceGame() {
       return a.x+a.r>-10;
     });
 
-    // Orbs
     s.orbs=s.orbs.filter(o=>{
       o.x+=o.vx;
       drawOrb(ctx,o,s.f);
@@ -190,7 +180,6 @@ export default function SpaceGame() {
       return o.x+o.r>-10;
     });
 
-    // Particles
     s.particles=s.particles.filter(p=>{
       p.x+=p.vx; p.y+=p.vy; p.vx*=.93; p.vy*=.93; p.alpha-=.023; p.life--;
       if(p.alpha<=0) return false;
@@ -202,11 +191,9 @@ export default function SpaceGame() {
 
     drawRocket(ctx,s.rocket.x,s.rocket.y,s.rocket.vy,s.f,s.inv);
 
-    // HUD
     ctx.fillStyle='rgba(255,255,255,.9)'; ctx.font='bold 17px Nunito,Arial'; ctx.textAlign='left';
     ctx.fillText(`Score: ${s.score}`,16,34);
     ctx.textAlign='right'; ctx.fillText('❤️'.repeat(s.lives),W-16,34);
-    // Progress bar
     const pct=Math.min(s.score/200,1);
     ctx.fillStyle='rgba(255,255,255,.1)'; ctx.fillRect(W/2-90,14,180,9);
     const pg=ctx.createLinearGradient(W/2-90,0,W/2+90,0);
@@ -234,46 +221,118 @@ export default function SpaceGame() {
   },[]);
   const touchEnd=useCallback(()=>{keysRef.current['ArrowUp']=false;keysRef.current['ArrowDown']=false;},[]);
 
+  // ── GSAP: menu entrance ──
+  useGSAP(() => {
+    if (phase !== 'menu' || !menuRef.current) return;
+    const tl = gsap.timeline({ delay: 0.05, defaults: { ease: 'power3.out' } });
+    tl.from('.game-rocket-emoji', {
+      scale: 0, rotation: 720, duration: 1.2, ease: 'elastic.out(1, 0.35)',
+    })
+    .from('.game-title', {
+      y: -45, opacity: 0, scale: 0.6, duration: 0.8, ease: 'back.out(2.2)',
+    }, '-=0.5')
+    .from('.game-desc', {
+      y: 25, opacity: 0, duration: 0.5,
+    }, '-=0.3')
+    .from('.sensor-badge', {
+      scale: 0, opacity: 0, rotation: -20,
+      stagger: 0.09, duration: 0.45, ease: 'back.out(2)',
+    }, '-=0.2')
+    .from('.game-controls', {
+      opacity: 0, y: 10, duration: 0.35,
+    }, '-=0.1')
+    .from('.game-launch-btn', {
+      scale: 0, opacity: 0, rotation: -10, duration: 0.7, ease: 'elastic.out(1.2, 0.4)',
+    }, '-=0.1')
+    .from('.game-hs', {
+      opacity: 0, y: 8, duration: 0.3,
+    }, '-=0.2');
+
+    // Continuous rocket-fly animation on the emoji
+    gsap.to('.game-rocket-emoji', {
+      y: -12, rotation: 5, duration: 1.6, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 1.5,
+    });
+
+    // Pulsing launch button
+    gsap.to('.game-launch-btn', {
+      boxShadow: '0 0 50px rgba(50,200,150,0.7)',
+      scale: 1.06, duration: 1.0, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 1.8,
+    });
+  }, { dependencies: [phase] });
+
+  // ── GSAP: over/win screen entrance ──
+  useGSAP(() => {
+    if ((phase !== 'over' && phase !== 'win') || !endRef.current) return;
+    const isWin = phase === 'win';
+    const tl = gsap.timeline({ delay: 0.08 });
+    tl.from('.end-emoji', {
+      scale: 0,
+      rotation: isWin ? 360 : -360,
+      duration: 1.2, ease: 'elastic.out(1, 0.32)',
+    })
+    .from('.end-title', {
+      y: -35, opacity: 0, scale: 0.7, duration: 0.6, ease: 'back.out(2.2)',
+    }, '-=0.5')
+    .from('.end-subtitle', {
+      opacity: 0, y: 10, duration: 0.4,
+    }, '-=0.3')
+    .from('.end-score-card', {
+      y: 40, opacity: 0, scale: 0.6, duration: 0.65, ease: 'back.out(2)',
+    }, '-=0.2')
+    .from('.end-btn', {
+      y: 22, opacity: 0, scale: 0.7, stagger: 0.1, duration: 0.45, ease: 'back.out(2)',
+    }, '-=0.2');
+
+    // Win: bounce celebration on emoji
+    if (isWin) {
+      gsap.to('.end-emoji', {
+        y: -18, duration: 0.5, repeat: 5, yoyo: true, ease: 'power2.inOut', delay: 1,
+      });
+    }
+  }, { dependencies: [phase] });
+
   return (
     <div className="min-h-screen bg-[#020614] flex flex-col">
       <Navbar/>
       <div className="flex-1 pt-16 flex flex-col">
-        {/* MENU */}
+
+        {/* ── MENU ── */}
         {phase==='menu'&&(
-          <div className="flex-1 flex flex-col items-center justify-center gap-6 px-4">
-            <motion.div initial={{opacity:0,y:-28}} animate={{opacity:1,y:0}} className="text-center max-w-md">
-              <div className="text-7xl mb-4 select-none">🚀</div>
-              <h1 className="text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-teal-300 to-green-300 mb-3">
+          <div ref={menuRef} className="flex-1 flex flex-col items-center justify-center gap-6 px-4">
+            <div className="text-center max-w-md">
+              <div className="game-rocket-emoji text-7xl mb-4 select-none">🚀</div>
+              <h1 className="game-title text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-teal-300 to-green-300 mb-3">
                 Terra Space Rescue
               </h1>
-              <p className="text-white/65 leading-relaxed mb-2">
+              <p className="game-desc text-white/65 leading-relaxed mb-2">
                 Pilot your rocket through space! Collect glowing <span className="text-yellow-300 font-bold">NASA data orbs</span> to learn cool Earth facts. Dodge <span className="text-red-300 font-bold">asteroids</span> — 3 hits and it's over!
               </p>
               <div className="flex flex-wrap justify-center gap-2 my-5">
                 {[{c:'#ff6b6b',l:'ASTER — Temperature'},{c:'#51cf66',l:'MODIS — Forests'},{c:'#ffd43b',l:'CERES — Energy'},{c:'#74c0fc',l:'MISR — Aerosols'}].map(s=>(
-                  <span key={s.l} className="text-[11px] font-bold px-3 py-1 rounded-full border" style={{color:s.c,borderColor:s.c+'70',background:s.c+'15'}}>{s.l}</span>
+                  <span key={s.l} className="sensor-badge text-[11px] font-bold px-3 py-1 rounded-full border"
+                    style={{color:s.c,borderColor:s.c+'70',background:s.c+'15'}}>{s.l}</span>
                 ))}
               </div>
-              <p className="text-white/35 text-xs mb-6">⌨️ Arrow keys / W·S &nbsp;·&nbsp; 📱 Tap top/bottom half</p>
+              <p className="game-controls text-white/35 text-xs mb-6">⌨️ Arrow keys / W·S &nbsp;·&nbsp; 📱 Tap top/bottom half</p>
               <motion.button onClick={()=>setPhase('playing')}
-                whileHover={{scale:1.08,boxShadow:'0 0 40px rgba(50,200,150,.5)'}} whileTap={{scale:.93}}
-                className="bg-gradient-to-r from-teal-500 to-blue-500 text-white font-black text-xl px-12 py-4 rounded-2xl shadow-xl">
+                whileHover={{scale:1.08}} whileTap={{scale:.93}}
+                className="game-launch-btn bg-gradient-to-r from-teal-500 to-blue-500 text-white font-black text-xl px-12 py-4 rounded-2xl shadow-xl">
                 🚀 Launch!
               </motion.button>
-              {hs>0&&<p className="mt-4 text-white/35 text-sm">Best score: {hs}</p>}
-            </motion.div>
+              {hs>0&&<p className="game-hs mt-4 text-white/35 text-sm">Best score: {hs}</p>}
+            </div>
           </div>
         )}
 
-        {/* GAME CANVAS */}
+        {/* ── GAME CANVAS ── */}
         {phase==='playing'&&(
           <div className="flex-1 relative">
             <canvas ref={canvasRef} className="w-full block" style={{height:'calc(100vh - 64px)',touchAction:'none'}}
               onTouchStart={touchStart} onTouchEnd={touchEnd} onTouchCancel={touchEnd}/>
-            {/* Fact toast */}
             <AnimatePresence>
               {fact&&(
-                <motion.div initial={{opacity:0,y:50,scale:.8}} animate={{opacity:1,y:0,scale:1}} exit={{opacity:0,y:-30}}
+                <motion.div initial={{opacity:0,y:55,scale:.75,rotation:-8}} animate={{opacity:1,y:0,scale:1,rotation:0}}
+                  exit={{opacity:0,y:-25,scale:.85}} transition={{type:'spring',stiffness:300,damping:22}}
                   className="absolute bottom-8 left-1/2 -translate-x-1/2 w-[92%] max-w-sm pointer-events-none z-10">
                   <div className="rounded-2xl p-4 backdrop-blur-2xl border shadow-2xl"
                     style={{background:'rgba(5,12,40,.94)',borderColor:fact.color+'55'}}>
@@ -291,32 +350,36 @@ export default function SpaceGame() {
           </div>
         )}
 
-        {/* OVER / WIN */}
+        {/* ── OVER / WIN ── */}
         {(phase==='over'||phase==='win')&&(
-          <div className="flex-1 flex flex-col items-center justify-center gap-6 px-4">
-            <motion.div initial={{opacity:0,scale:.7}} animate={{opacity:1,scale:1}}
-              transition={{type:'spring',stiffness:200,damping:18}} className="text-center max-w-sm">
-              <motion.div className="text-8xl mb-4 select-none"
-                animate={{scale:[1,1.18,1],rotate:[0,10,-10,0]}} transition={{duration:1,repeat:2}}>
+          <div ref={endRef} className="flex-1 flex flex-col items-center justify-center gap-6 px-4">
+            <div className="text-center max-w-sm">
+              <div className="end-emoji text-8xl mb-4 select-none">
                 {phase==='win'?'🏆':'💥'}
-              </motion.div>
-              <h2 className="text-3xl font-black text-white mb-2">{phase==='win'?'Mission Complete!':'Crashed!'}</h2>
-              <p className="text-white/55 mb-6">{phase==='win'?'You collected all NASA data! 🎉':'Asteroids got you! Try again!'}</p>
-              <div className="glass rounded-2xl p-5 mb-6 flex gap-8 justify-center">
+              </div>
+              <h2 className="end-title text-3xl font-black text-white mb-2">
+                {phase==='win'?'Mission Complete!':'Crashed!'}
+              </h2>
+              <p className="end-subtitle text-white/55 mb-6">
+                {phase==='win'?'You collected all NASA data! 🎉':'Asteroids got you! Try again!'}
+              </p>
+              <div className="end-score-card glass rounded-2xl p-5 mb-6 flex gap-8 justify-center">
                 <div><div className="text-4xl font-black text-teal-300">{uiScore}</div><div className="text-white/45 text-xs mt-1">Score</div></div>
                 <div><div className="text-4xl font-black text-yellow-300">{hs}</div><div className="text-white/45 text-xs mt-1">Best</div></div>
               </div>
               <div className="flex gap-3 justify-center flex-wrap">
                 <motion.button onClick={()=>setPhase('playing')} whileHover={{scale:1.06}} whileTap={{scale:.94}}
-                  className="bg-gradient-to-r from-teal-500 to-blue-500 text-white font-bold px-7 py-3 rounded-full shadow-lg">
+                  className="end-btn bg-gradient-to-r from-teal-500 to-blue-500 text-white font-bold px-7 py-3 rounded-full shadow-lg">
                   🔄 Play Again
                 </motion.button>
-                <Link to="/story"><motion.div whileHover={{scale:1.06}} whileTap={{scale:.94}}
-                  className="bg-white/10 border border-white/20 text-white font-bold px-7 py-3 rounded-full cursor-pointer flex items-center gap-2">
-                  <BookOpen size={14}/> Stories
-                </motion.div></Link>
+                <Link to="/story">
+                  <motion.div whileHover={{scale:1.06}} whileTap={{scale:.94}}
+                    className="end-btn bg-white/10 border border-white/20 text-white font-bold px-7 py-3 rounded-full cursor-pointer flex items-center gap-2">
+                    <BookOpen size={14}/> Stories
+                  </motion.div>
+                </Link>
               </div>
-            </motion.div>
+            </div>
           </div>
         )}
       </div>

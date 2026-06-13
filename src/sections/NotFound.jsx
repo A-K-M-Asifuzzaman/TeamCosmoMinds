@@ -17,7 +17,7 @@ export default function NotFound() {
               <Home size={16}/> Go Home
             </motion.div>
           </Link>
-          <Link to="/terra-game">
+          <Link to="/">
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: .95 }}
               className="flex items-center gap-2 bg-white/10 border border-white/20 text-white font-bold px-6 py-3 rounded-full cursor-pointer">
               <Rocket size={16}/> Terra Explorer

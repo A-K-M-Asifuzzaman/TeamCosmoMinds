@@ -84,7 +84,7 @@ export default function About() {
               spark climate curiosity and action — one flipbook, one globe, one child at a time.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
-              <Link to="/terra-game">
+              <Link to="/">
                 <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: .96 }}
                   className="inline-flex items-center gap-2 rounded-lg bg-white text-black px-5 py-2.5 font-semibold hover:bg-white/90 cursor-pointer">
                   <Rocket size={15}/> Try Terra Explorer
