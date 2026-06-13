@@ -1,6 +1,8 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Trash2, Bot, User, Rocket, Loader2 } from "lucide-react";
+import { Send, Trash2, Bot, User, Loader2, Sparkles, Globe2, Thermometer, Wind, Leaf } from "lucide-react";
+import { useGSAP } from '@gsap/react';
+import gsap from 'gsap';
 import Navbar from "./Navbar";
 
 const API_BASE = "https://bot-five-liard.vercel.app";
@@ -94,35 +96,71 @@ export default function TerraChat() {
     setBusy(false);
   };
 
+  const headerRef = useRef(null);
+  useGSAP(() => {
+    if (!headerRef.current) return;
+    const tl = gsap.timeline({ delay: .1 });
+    tl.from('.chat-bot-icon', { scale: 0, rotation: -360, duration: 1.0, ease: 'elastic.out(1, 0.4)' })
+      .from('.chat-title-char', { y: -55, opacity: 0, rotation: gsap.utils.wrap([-22, 22]), scale: .2, stagger: .04, duration: .6, ease: 'back.out(3)' }, '-=.55')
+      .from('.chat-sub', { y: 18, opacity: 0, duration: .45 }, '-=.3')
+      .from('.chat-sensor-pill', { scale: 0, opacity: 0, stagger: .08, duration: .4, ease: 'back.out(2.5)' }, '-=.2')
+      .from('.chat-area', { y: 35, opacity: 0, duration: .55, ease: 'power2.out' }, '-=.2');
+    gsap.to('.chat-bot-icon', {
+      boxShadow: '0 0 40px rgba(50,200,180,.8)', scale: 1.08,
+      duration: 1.2, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 1.5,
+    });
+  }, []);
+
+  const SENSOR_PILLS = [
+    { label: 'ASTER', icon: <Thermometer size={11}/>, color: '#ff6b6b', desc: 'Surface temperature' },
+    { label: 'CERES', icon: <Globe2 size={11}/>, color: '#ffd43b', desc: 'Energy budget' },
+    { label: 'MISR',  icon: <Wind size={11}/>, color: '#74c0fc', desc: 'Aerosols & 3D mapping' },
+    { label: 'MODIS', icon: <Leaf size={11}/>, color: '#51cf66', desc: 'Vegetation & fires' },
+  ];
+
   return (
     <div className="min-h-screen bg-[#020614] flex flex-col">
       <Navbar />
 
       {/* Background */}
       <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_0%,rgba(20,50,140,.4),transparent_70%)]"/>
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_40%_at_90%_90%,rgba(0,60,90,.25),transparent_60%)]"/>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_75%_55%_at_50%_0%,rgba(20,50,140,.45),transparent_68%)]"/>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_55%_40%_at_90%_90%,rgba(0,60,90,.28),transparent_60%)]"/>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_45%_35%_at_5%_85%,rgba(60,10,100,.18),transparent_60%)]"/>
       </div>
 
       <div className="relative z-10 flex flex-col flex-1 pt-16">
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-          className="text-center py-8 px-4">
-          <div className="inline-flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-teal-500 flex items-center justify-center shadow-[0_0_20px_rgba(50,180,255,.5)]">
-              <Bot size={20} className="text-white"/>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-teal-300">
-              Terra AI Guide
-            </h1>
+        <div ref={headerRef} className="text-center py-7 sm:py-10 px-4">
+          {/* Animated bot icon */}
+          <div className="chat-bot-icon inline-flex w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-teal-500 items-center justify-center shadow-[0_0_25px_rgba(50,180,255,.55)] mb-4">
+            <Bot size={26} className="text-white"/>
           </div>
-          <p className="text-white/50 text-sm max-w-md mx-auto">
-            Powered by NASA Terra data — ASTER, CERES, MISR, and MODIS
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-2">
+            {'Terra AI Guide'.split('').map((ch, i) => (
+              <span key={i} className="chat-title-char gradient-text-animated inline-block" style={{ animationDelay: `${i * .07}s` }}>
+                {ch === ' ' ? ' ' : ch}
+              </span>
+            ))}
+          </h1>
+          <p className="chat-sub text-white/45 text-sm sm:text-base max-w-md mx-auto mb-5">
+            Your AI guide to NASA Terra's four science instruments — ask me anything!
           </p>
-        </motion.div>
+          {/* Sensor pills */}
+          <div className="flex flex-wrap gap-2 justify-center">
+            {SENSOR_PILLS.map(s => (
+              <button key={s.label} onClick={() => send(`Tell me about ${s.label} instrument on NASA Terra`)}
+                className="chat-sensor-pill inline-flex items-center gap-1.5 rounded-full border text-[11px] font-bold px-3 py-1.5 hover:opacity-80 transition-opacity"
+                style={{ color: s.color, borderColor: `${s.color}55`, background: `${s.color}12` }}>
+                {s.icon} {s.label}
+                <span className="text-white/35 hidden sm:inline">— {s.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Chat area */}
-        <div className="flex-1 max-w-3xl w-full mx-auto px-4 flex flex-col gap-4 pb-4">
+        <div className="chat-area flex-1 max-w-3xl w-full mx-auto px-4 flex flex-col gap-4 pb-4">
           {/* Messages */}
           <div ref={boxRef}
             className="flex-1 overflow-y-auto rounded-2xl border border-white/10 bg-black/30 backdrop-blur-xl p-4 space-y-4 min-h-[300px] max-h-[calc(100vh-360px)]"

@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Rocket, Menu, X, Bot, Users, Home, BookOpen, Gamepad2 } from 'lucide-react';
+import { Rocket, Menu, X, Bot, Users, Home, BookOpen, Gamepad2, Telescope, Globe2 } from 'lucide-react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 
 const NAV = [
-  { name: 'Home',       href: '/',           icon: Home },
-  { name: 'Story',      href: '/story',       icon: BookOpen },
-  { name: 'Space Game', href: '/space-game',  icon: Gamepad2 },
-  { name: 'ChatBot',    href: '/chatbot',     icon: Bot },
-  { name: 'About',      href: '/about',       icon: Users },
+  { name: 'Home',       href: '/',            icon: Home },
+  { name: 'Story',      href: '/story',        icon: BookOpen },
+  { name: 'Game',       href: '/space-game',   icon: Gamepad2 },
+  { name: 'NASA Live',  href: '/discover',     icon: Globe2 },
+  { name: 'Terra Lab',  href: '/terra-lab',    icon: Telescope },
+  { name: 'AI Chat',    href: '/chatbot',      icon: Bot },
+  { name: 'About',      href: '/about',        icon: Users },
 ];
 
 export default function Navbar() {
